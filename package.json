@@ -1,0 +1,8 @@
+{
+  "name": "w2-a1-task-api",
+  "version": "1.0.0",
+  "description": "FlyRank Week 2 A1 CRUD Task API built with Express and Swagger UI",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "dev": "node server.js" },
+  "dependencies": { "express": "^5.1.0", "swagger-ui-express": "^5.0.1" }
+}
