@@ -1,75 +1,119 @@
-# Task API — FlyRank Week 2 A1
+# FlyRank Week 2 – CRUD Task API
 
-A small Express API that manages an in-memory to-do list using CRUD operations. It includes Swagger UI for interactive API documentation.
+A RESTful Task Management API built with **Node.js + Express**, featuring Swagger UI docs, request logging, and full CRUD support.
 
-## Tech stack
-- Node.js
-- Express
-- Swagger UI (`swagger-ui-express`)
-- In-memory JavaScript array (no database)
+---
 
-## Run locally
+## 🚀 Quick Start
 
 ```bash
 npm install
 npm start
 ```
 
-Server: `http://localhost:3000`  
-Swagger UI: `http://localhost:3000/docs`
+Server runs at: `http://localhost:3000`  
+Swagger docs at: `http://localhost:3000/docs`
 
-## Endpoints
+---
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/` | API metadata |
-| GET | `/health` | Health check |
-| GET | `/tasks` | List all tasks |
-| GET | `/tasks/:id` | Get one task |
-| POST | `/tasks` | Create a task |
-| PUT | `/tasks/:id` | Update task title and/or done |
-| DELETE | `/tasks/:id` | Delete a task |
+## 📋 Endpoints
 
-## Status codes
-- `200` — successful read/update
-- `201` — task created
-- `204` — task deleted, no response body
-- `400` — invalid or empty request body
-- `404` — task or route not found
+### Root & Health
 
-## Example curl output
+| Method | Route     | Description                  |
+|--------|-----------|------------------------------|
+| GET    | `/`       | API info and version         |
+| GET    | `/health` | Health check – returns `ok`  |
 
-```text
-$ curl -i http://localhost:3000/tasks/1
-HTTP/1.1 200 OK
-Content-Type: application/json; charset=utf-8
+### Tasks
 
-{"id":1,"title":"Finish Week 2 API","done":false}
+| Method | Route                  | Description                          |
+|--------|------------------------|--------------------------------------|
+| GET    | `/tasks`               | Get all tasks (supports `?done=true/false`) |
+| GET    | `/tasks/:id`           | Get a single task by ID              |
+| POST   | `/tasks`               | Create a new task                    |
+| PUT    | `/tasks/:id`           | Update a task (title and/or done)    |
+| PATCH  | `/tasks/:id/done`      | Toggle the `done` status of a task   |
+| DELETE | `/tasks/:id`           | Delete a task                        |
+
+---
+
+## 📝 Task Schema
+
+```json
+{
+  "id": 1,
+  "title": "Finish Week 2 API",
+  "done": false,
+  "createdAt": "2026-09-27T10:00:00.000Z"
+}
 ```
 
-## Full CRUD example
+---
 
-```bash
-curl -i -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d '{"title":"Buy milk"}'
-curl -i http://localhost:3000/tasks
-curl -i http://localhost:3000/tasks/4
-curl -i -X PUT http://localhost:3000/tasks/4 -H "Content-Type: application/json" -d '{"done":true}'
-curl -i -X DELETE http://localhost:3000/tasks/4
+## 🔍 Query Filtering
+
+Filter tasks by completion status:
+
+```
+GET /tasks?done=true    → returns only completed tasks
+GET /tasks?done=false   → returns only pending tasks
+GET /tasks              → returns all tasks
 ```
 
-## Validation examples
+---
 
-```bash
-curl -i -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d '{}'
-curl -i http://localhost:3000/tasks/99
+## 📦 Request & Response Examples
+
+### Create a Task
+```http
+POST /tasks
+Content-Type: application/json
+
+{ "title": "Write unit tests" }
+```
+**Response `201`:**
+```json
+{ "id": 4, "title": "Write unit tests", "done": false, "createdAt": "..." }
 ```
 
-## Swagger screenshot
+### Update a Task
+```http
+PUT /tasks/1
+Content-Type: application/json
 
-Open `http://localhost:3000/docs` and use **Try it out** to create, list, update, and delete tasks. Add your screenshot below before final submission.
+{ "title": "Updated title", "done": true }
+```
 
-`[Insert Swagger UI screenshot here]`
+### Toggle Done
+```http
+PATCH /tasks/1/done
+```
+**Response `200`:** returns the task with `done` flipped.
 
-## Notes
+### Delete a Task
+```http
+DELETE /tasks/1
+```
+**Response `204 No Content`**
 
-The task data is intentionally stored only in memory. Restarting the server resets the list to the three seed tasks.
+---
+
+## ⚙️ Tech Stack
+
+- **Runtime:** Node.js
+- **Framework:** Express v5
+- **Logging:** Morgan (dev)
+- **API Docs:** Swagger UI Express + OpenAPI 3.0
+
+---
+
+## 📁 Project Structure
+
+```
+W2_A1_Task_API/
+├── server.js        # Main Express application
+├── openapi.json     # OpenAPI 3.0 specification
+├── package.json     # Dependencies and scripts
+└── README.md        # This file
+```
