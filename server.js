@@ -15,7 +15,12 @@ let tasks = [
 
 app.get('/', (req, res) => res.json({ name: 'Task API', version: '1.0', endpoints: ['/tasks'] }));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
-app.get('/tasks', (req, res) => res.json(tasks));
+app.get('/tasks', (req, res) => {
+  const { done } = req.query;
+  if (done === 'true') return res.json(tasks.filter((t) => t.done === true));
+  if (done === 'false') return res.json(tasks.filter((t) => t.done === false));
+  res.json(tasks);
+});
 
 app.get('/tasks/:id', (req, res) => {
   const id = Number(req.params.id);
