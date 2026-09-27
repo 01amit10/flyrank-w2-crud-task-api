@@ -8,9 +8,9 @@ app.use(express.json());
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
 
 let tasks = [
-  { id: 1, title: 'Finish Week 2 API', done: false },
-  { id: 2, title: 'Test CRUD endpoints', done: false },
-  { id: 3, title: 'Publish project to GitHub', done: false }
+  { id: 1, title: 'Finish Week 2 API', done: false, createdAt: new Date('2026-09-27T10:00:00Z').toISOString() },
+  { id: 2, title: 'Test CRUD endpoints', done: false, createdAt: new Date('2026-09-27T10:05:00Z').toISOString() },
+  { id: 3, title: 'Publish project to GitHub', done: false, createdAt: new Date('2026-09-27T10:10:00Z').toISOString() }
 ];
 
 app.get('/', (req, res) => res.json({ name: 'Task API', version: '1.0', endpoints: ['/tasks'] }));
@@ -28,7 +28,7 @@ app.post('/tasks', (req, res) => {
   const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
   if (!title) return res.status(400).json({ error: 'title is required and cannot be empty' });
   const nextId = tasks.length ? Math.max(...tasks.map((item) => item.id)) + 1 : 1;
-  const task = { id: nextId, title, done: false };
+  const task = { id: nextId, title, done: false, createdAt: new Date().toISOString() };
   tasks.push(task);
   res.status(201).json(task);
 });
