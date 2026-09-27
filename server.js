@@ -71,4 +71,15 @@ app.delete('/tasks/:id', (req, res) => {
   res.status(204).send();
 });
 
+// 404 – unknown route
+app.use((req, res) => {
+  res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
+});
+
+// Global error handler
+app.use((err, req, res, _next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 app.listen(PORT, () => console.log(`Task API running at http://localhost:${PORT}`));
