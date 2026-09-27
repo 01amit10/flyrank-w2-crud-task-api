@@ -50,6 +50,14 @@ app.put('/tasks/:id', (req, res) => {
   res.json(task);
 });
 
+app.patch('/tasks/:id/done', (req, res) => {
+  const id = Number(req.params.id);
+  const task = tasks.find((item) => item.id === id);
+  if (!task) return res.status(404).json({ error: `Task ${id} not found` });
+  task.done = !task.done;
+  res.json(task);
+});
+
 app.delete('/tasks/:id', (req, res) => {
   const id = Number(req.params.id);
   const index = tasks.findIndex((item) => item.id === id);
