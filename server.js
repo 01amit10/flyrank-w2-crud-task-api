@@ -53,12 +53,6 @@ function formatTask(row) {
   };
 }
 
-let tasks = [
-  { id: 1, title: 'Finish Week 2 API', done: false, createdAt: new Date('2026-09-27T10:00:00Z').toISOString() },
-  { id: 2, title: 'Test CRUD endpoints', done: false, createdAt: new Date('2026-09-27T10:05:00Z').toISOString() },
-  { id: 3, title: 'Publish project to GitHub', done: false, createdAt: new Date('2026-09-27T10:10:00Z').toISOString() }
-];
-
 app.get('/', (req, res) => res.json({ name: 'Task API', version: '1.0', endpoints: ['/tasks'] }));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -100,8 +94,9 @@ app.post('/tasks', (req, res) => {
 
 app.put('/tasks/:id', (req, res) => {
   const id = Number(req.params.id);
-  const task = tasks.find((item) => item.id === id);
-  if (!task) return res.status(404).json({ error: `Task ${id} not found` });
+  const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Task not found' });
+
   const body = req.body;
   if (!body || Object.keys(body).length === 0) return res.status(400).json({ error: 'Request body cannot be empty' });
   if ('title' in body && (typeof body.title !== 'string' || !body.title.trim())) {
@@ -110,24 +105,30 @@ app.put('/tasks/:id', (req, res) => {
   if ('done' in body && typeof body.done !== 'boolean') {
     return res.status(400).json({ error: 'done must be a boolean' });
   }
-  if ('title' in body) task.title = body.title.trim();
-  if ('done' in body) task.done = body.done;
-  res.json(task);
+
+  const newTitle = 'title' in body ? body.title.trim() : existing.title;
+  const newDone = 'done' in body ? (body.done ? 1 : 0) : existing.done;
+
+  db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?').run(newTitle, newDone, id);
+  const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  res.json(formatTask(updated));
 });
 
 app.patch('/tasks/:id/done', (req, res) => {
   const id = Number(req.params.id);
-  const task = tasks.find((item) => item.id === id);
-  if (!task) return res.status(404).json({ error: `Task ${id} not found` });
-  task.done = !task.done;
-  res.json(task);
+  const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Task not found' });
+
+  const newDone = existing.done === 1 ? 0 : 1;
+  db.prepare('UPDATE tasks SET done = ? WHERE id = ?').run(newDone, id);
+  const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  res.json(formatTask(updated));
 });
 
 app.delete('/tasks/:id', (req, res) => {
   const id = Number(req.params.id);
-  const index = tasks.findIndex((item) => item.id === id);
-  if (index === -1) return res.status(404).json({ error: `Task ${id} not found` });
-  tasks.splice(index, 1);
+  const result = db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Task not found' });
   res.status(204).send();
 });
 
