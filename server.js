@@ -9,11 +9,46 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
 
+const path = require('path');
+const Database = require('better-sqlite3');
+
+const dbPath = path.join(__dirname, 'tasks.db');
+const db = new Database(dbPath);
+db.pragma('journal_mode = WAL');
+
+// Stage 0: Create tasks table if it does not exist
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    done INTEGER NOT NULL DEFAULT 0
+  )
+`);
+
+// Seed 3 example tasks if table is empty
+const rowCount = db.prepare('SELECT COUNT(*) as count FROM tasks').get().count;
+if (rowCount === 0) {
+  const seedInsert = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
+  const seedMany = db.transaction((items) => {
+    for (const item of items) {
+      seedInsert.run(item.title, item.done);
+    }
+  });
+
+  seedMany([
+    { title: 'Finish Week 2 API', done: 0 },
+    { title: 'Test CRUD endpoints', done: 0 },
+    { title: 'Publish project to GitHub', done: 0 }
+  ]);
+  console.log('Database initialized: seeded 3 initial tasks into tasks.db');
+}
+
 let tasks = [
   { id: 1, title: 'Finish Week 2 API', done: false, createdAt: new Date('2026-09-27T10:00:00Z').toISOString() },
   { id: 2, title: 'Test CRUD endpoints', done: false, createdAt: new Date('2026-09-27T10:05:00Z').toISOString() },
   { id: 3, title: 'Publish project to GitHub', done: false, createdAt: new Date('2026-09-27T10:10:00Z').toISOString() }
 ];
+
 
 app.get('/', (req, res) => res.json({ name: 'Task API', version: '1.0', endpoints: ['/tasks'] }));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));

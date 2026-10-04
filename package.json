@@ -8,6 +8,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "express": "^5.1.0",
     "morgan": "^1.12.1",
     "swagger-ui-express": "^5.0.1"
