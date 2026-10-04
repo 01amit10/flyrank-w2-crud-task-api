@@ -1,80 +1,244 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Task API (SQLite Backed)",
-    "version": "2.0.0",
-    "description": "FlyRank Week 3 A2 RESTful Task Management API backed by SQLite (better-sqlite3) with persistence, search, filtering, and stats."
+    "title": "FlyRank Task & Auth API",
+    "version": "4.0.0",
+    "description": "Secure Task & Authentication API with Supabase Auth, JWT verification, protected route middleware, and PostgreSQL storage."
   },
   "servers": [{ "url": "http://localhost:3000" }],
   "paths": {
-    "/": { "get": { "summary": "API Metadata", "responses": { "200": { "description": "API metadata returned" } } } },
-    "/health": { "get": { "summary": "Health check", "responses": { "200": { "description": "Server is healthy" } } } },
-    "/stats": { "get": { "summary": "Task statistics", "responses": { "200": { "description": "Computed task statistics via SQL COUNT" } } } },
+    "/": {
+      "get": {
+        "summary": "API Metadata",
+        "tags": ["Public"],
+        "responses": { "200": { "description": "API metadata returned" } }
+      }
+    },
+    "/public/info": {
+      "get": {
+        "summary": "Public information endpoint (no auth required)",
+        "tags": ["Public"],
+        "responses": {
+          "200": {
+            "description": "Public message",
+            "content": {
+              "application/json": {
+                "example": { "message": "Welcome stranger! This info is public." }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check (active DB ping)",
+        "tags": ["System"],
+        "responses": { "200": { "description": "System is healthy" }, "503": { "description": "Service degraded" } }
+      }
+    },
+    "/auth/signup": {
+      "post": {
+        "summary": "Register a new user account with Supabase Auth",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "test@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "password123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created successfully" },
+          "400": { "description": "Missing credentials or invalid signup request" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate user credentials & obtain JWT bearer access token",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "test@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "password123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "example": {
+                  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                  "refresh_token": "8f8c9b...",
+                  "expires_in": 3600,
+                  "token_type": "bearer",
+                  "user": { "id": "uuid", "email": "test@example.com" }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing email or password" },
+          "401": { "description": "Invalid login credentials" },
+          "429": { "description": "Too many failed attempts (brute-force rate limiting)" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "summary": "End current user session",
+        "tags": ["Authentication"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "204": { "description": "Session ended successfully" },
+          "401": { "description": "Unauthorized - valid bearer token required" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "summary": "Exchange a refresh token for a new access token",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refresh_token"],
+                "properties": {
+                  "refresh_token": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Token refreshed successfully" },
+          "401": { "description": "Invalid or expired refresh token" }
+        }
+      }
+    },
+    "/protected/profile": {
+      "get": {
+        "summary": "Get authenticated user profile",
+        "tags": ["Protected Routes"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User profile data",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "00000000-0000-0000-0000-000000000001",
+                  "email": "test@example.com",
+                  "role": "authenticated",
+                  "createdAt": "2026-10-04T10:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized - Missing or invalid/expired token" }
+        }
+      }
+    },
+    "/protected/dashboard": {
+      "get": {
+        "summary": "Get user dashboard statistics and metrics",
+        "tags": ["Protected Routes"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "User dashboard metrics" },
+          "401": { "description": "Unauthorized - Bearer token required" }
+        }
+      }
+    },
+    "/protected/admin": {
+      "get": {
+        "summary": "Admin-only restricted endpoint (demonstrates 403 Forbidden)",
+        "tags": ["Protected Routes"],
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Admin access granted" },
+          "401": { "description": "Unauthorized (unauthenticated)" },
+          "403": { "description": "Forbidden (authenticated user is not an admin)" }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "Task metrics computed via SQL COUNT",
+        "tags": ["Tasks"],
+        "responses": { "200": { "description": "Task metrics" } }
+      }
+    },
     "/tasks": {
       "get": {
         "summary": "List tasks with optional search, filter, and sort",
+        "tags": ["Tasks"],
         "parameters": [
-          { "name": "done", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] }, "description": "Filter by completion status" },
-          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Search keyword in task title" },
-          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["title", "id"] }, "description": "Field to sort by" },
-          { "name": "order", "in": "query", "schema": { "type": "string", "enum": ["asc", "desc"] }, "description": "Sort order" }
+          { "name": "done", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["title", "id"] } },
+          { "name": "order", "in": "query", "schema": { "type": "string", "enum": ["asc", "desc"] } }
         ],
-        "responses": { "200": { "description": "Array of tasks", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Task" } } } } } }
+        "responses": { "200": { "description": "Array of tasks" } }
       },
       "post": {
         "summary": "Create a task",
+        "tags": ["Tasks"],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateTask" }, "example": { "title": "Buy groceries" } } }
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": { "title": { "type": "string", "example": "Buy groceries" } }
+              }
+            }
+          }
         },
-        "responses": { "201": { "description": "Task created" }, "400": { "description": "Invalid request" } }
+        "responses": { "201": { "description": "Task created" }, "400": { "description": "Invalid title" } }
       }
     },
     "/tasks/{id}": {
       "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "get": { "summary": "Get one task by ID", "responses": { "200": { "description": "Task found" }, "404": { "description": "Task not found" } } },
-      "put": {
-        "summary": "Update a task",
-        "requestBody": {
-          "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateTask" }, "examples": { "mark_done": { "value": { "done": true } }, "rename": { "value": { "title": "Buy organic groceries" } } } } }
-        },
-        "responses": { "200": { "description": "Task updated" }, "400": { "description": "Invalid request" }, "404": { "description": "Task not found" } }
-      },
-      "delete": { "summary": "Delete a task", "responses": { "204": { "description": "Task deleted" }, "404": { "description": "Task not found" } } }
+      "get": { "summary": "Get one task by ID", "tags": ["Tasks"], "responses": { "200": { "description": "Task found" }, "404": { "description": "Task not found" } } },
+      "put": { "summary": "Update a task", "tags": ["Tasks"], "responses": { "200": { "description": "Task updated" }, "400": { "description": "Invalid input" }, "404": { "description": "Task not found" } } },
+      "delete": { "summary": "Delete a task", "tags": ["Tasks"], "responses": { "204": { "description": "Task deleted" }, "404": { "description": "Task not found" } } }
     },
     "/tasks/{id}/done": {
       "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
-      "patch": { "summary": "Toggle task done status", "responses": { "200": { "description": "Task toggled" }, "404": { "description": "Task not found" } } }
+      "patch": { "summary": "Toggle task done status", "tags": ["Tasks"], "responses": { "200": { "description": "Toggled" }, "404": { "description": "Task not found" } } }
     }
   },
   "components": {
-    "schemas": {
-      "Task": {
-        "type": "object",
-        "required": ["id", "title", "done"],
-        "properties": {
-          "id": { "type": "integer", "example": 1 },
-          "title": { "type": "string", "example": "Finish Week 2 API" },
-          "done": { "type": "boolean", "example": false },
-          "createdAt": { "type": "string", "example": "2026-10-04T10:00:00.000Z" },
-          "updatedAt": { "type": "string", "example": "2026-10-04T10:00:00.000Z" }
-        }
-      },
-      "CreateTask": {
-        "type": "object",
-        "required": ["title"],
-        "properties": { "title": { "type": "string", "example": "Buy groceries" } }
-      },
-      "UpdateTask": {
-        "type": "object",
-        "minProperties": 1,
-        "properties": {
-          "title": { "type": "string", "example": "Buy organic groceries" },
-          "done": { "type": "boolean", "example": true }
-        }
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Authorization header using the Bearer scheme. Enter your token in the text input below."
       }
     }
   }
 }
-
