@@ -1,8 +1,11 @@
-Containerize this Node.js Express task CRUD API using PostgreSQL and Docker Compose.
+Build a secured REST API using Node.js, Express, and Supabase Auth.
 Requirements:
-1. Use node-postgres (pg) to talk to a PostgreSQL database.
-2. Read the database connection string from environment variables (.env file with DATABASE_URL), never hardcode passwords.
-3. Automatically create the tasks table (id serial primary key, title text, done boolean) and seed three initial tasks if empty.
-4. Keep the 5 CRUD endpoints (GET /tasks, GET /tasks/:id, POST /tasks, PUT /tasks/:id, DELETE /tasks/:id) with identical status codes (200, 201, 204, 400, 404) and parameterized queries ($1, $2).
-5. Write a Dockerfile for the app.
-6. Write a compose.yaml orchestrating the app and postgres service with a persistent volume so data survives container restarts.
+1. Initialize the Supabase client using environment variables (SUPABASE_URL and SUPABASE_KEY).
+2. Create five routes:
+   - POST /auth/signup: creates a user account using email and password, returning 201 Created or 400 Bad Request.
+   - POST /auth/login: authenticates with email and password and returns JWT access_token, returning 200 OK or 401 Unauthorized.
+   - POST /auth/logout: signs out the user, returning 204 No Content.
+   - GET /protected/profile: protected endpoint returning user profile with 200 OK.
+   - GET /public/info: open endpoint returning 200 OK with public info.
+3. Protect the private routes using an Express authentication middleware that verifies the Bearer token with Supabase (401 if missing, invalid, or expired).
+4. Configure Swagger UI with Bearer authentication so users can authorize in /docs.
