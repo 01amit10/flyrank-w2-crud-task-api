@@ -1,0 +1,8 @@
+Refactor this Node.js Express task CRUD API from an in-memory array to a persistent SQLite database using better-sqlite3.
+Requirements:
+1. Use better-sqlite3 and connect to a database file named tasks.db.
+2. Create a tasks table if it does not already exist with id (primary key), title (text), and done (boolean).
+3. Check if the table is empty on startup and seed 3 default tasks.
+4. Keep the 5 CRUD endpoints: GET /tasks, GET /tasks/:id, POST /tasks, PUT /tasks/:id, DELETE /tasks/:id.
+5. Maintain the existing status codes (200, 201 for create, 204 for delete, 400 for invalid body, 404 for unknown id) and JSON error responses.
+6. Use parameterized queries to prevent SQL injection.
