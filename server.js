@@ -21,17 +21,30 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
-    done INTEGER NOT NULL DEFAULT 0
+    done INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
   )
 `);
 
-// Seed 3 example tasks if table is empty
+// Schema migration fallback: add timestamp columns if missing
+try { db.exec("ALTER TABLE tasks ADD COLUMN created_at TEXT DEFAULT (datetime('now'))"); } catch (_) {}
+try { db.exec("ALTER TABLE tasks ADD COLUMN updated_at TEXT DEFAULT (datetime('now'))"); } catch (_) {}
+
+// Indexes for optimized query lookups
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks(done);
+  CREATE INDEX IF NOT EXISTS idx_tasks_title ON tasks(title);
+`);
+
+// Seed 3 example tasks if table is empty (wrapped in transaction)
 const rowCount = db.prepare('SELECT COUNT(*) as count FROM tasks').get().count;
 if (rowCount === 0) {
-  const seedInsert = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
+  const now = new Date().toISOString();
+  const seedInsert = db.prepare('INSERT INTO tasks (title, done, created_at, updated_at) VALUES (?, ?, ?, ?)');
   const seedMany = db.transaction((items) => {
     for (const item of items) {
-      seedInsert.run(item.title, item.done);
+      seedInsert.run(item.title, item.done, now, now);
     }
   });
 
@@ -43,29 +56,59 @@ if (rowCount === 0) {
   console.log('Database initialized: seeded 3 initial tasks into tasks.db');
 }
 
-// Helper to ensure boolean done is returned to clients
+// Helper to format task object and ensure boolean done
 function formatTask(row) {
   if (!row) return null;
-  return {
+  const task = {
     id: row.id,
     title: row.title,
     done: Boolean(row.done)
   };
+  if (row.created_at) task.createdAt = row.created_at;
+  if (row.updated_at) task.updatedAt = row.updated_at;
+  return task;
 }
 
-app.get('/', (req, res) => res.json({ name: 'Task API', version: '1.0', endpoints: ['/tasks'] }));
+app.get('/', (req, res) => res.json({ name: 'Task API', version: '1.0', endpoints: ['/tasks', '/stats'] }));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
+// GET /stats: Real statistics calculated with SQL COUNT(*)
+app.get('/stats', (req, res) => {
+  const total = db.prepare('SELECT COUNT(*) as count FROM tasks').get().count;
+  const completed = db.prepare('SELECT COUNT(*) as count FROM tasks WHERE done = 1').get().count;
+  const pending = total - completed;
+  res.json({
+    total,
+    completed,
+    pending,
+    completionRate: total > 0 ? `${Math.round((completed / total) * 100)}%` : '0%'
+  });
+});
+
+// GET /tasks: Supports SQL LIKE search, status filter, and title/id sorting
 app.get('/tasks', (req, res) => {
-  const { done } = req.query;
-  let rows;
+  const { done, search, sort, order } = req.query;
+  let query = 'SELECT * FROM tasks WHERE 1=1';
+  const params = [];
+
   if (done === 'true') {
-    rows = db.prepare('SELECT * FROM tasks WHERE done = ?').all(1);
+    query += ' AND done = ?';
+    params.push(1);
   } else if (done === 'false') {
-    rows = db.prepare('SELECT * FROM tasks WHERE done = ?').all(0);
-  } else {
-    rows = db.prepare('SELECT * FROM tasks').all();
+    query += ' AND done = ?';
+    params.push(0);
   }
+
+  if (search && typeof search === 'string' && search.trim() !== '') {
+    query += ' AND title LIKE ?';
+    params.push(`%${search.trim()}%`);
+  }
+
+  const sortCol = sort === 'title' ? 'title' : 'id';
+  const sortDirection = order && order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+  query += ` ORDER BY ${sortCol} ${sortDirection}`;
+
+  const rows = db.prepare(query).all(...params);
   res.json(rows.map(formatTask));
 });
 
@@ -76,18 +119,20 @@ app.get('/tasks/:id', (req, res) => {
   res.json(formatTask(row));
 });
 
-
 app.post('/tasks', (req, res) => {
   const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
   if (!title) return res.status(400).json({ error: 'title is required and cannot be empty' });
 
-  const stmt = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
-  const result = stmt.run(title, 0);
+  const now = new Date().toISOString();
+  const stmt = db.prepare('INSERT INTO tasks (title, done, created_at, updated_at) VALUES (?, ?, ?, ?)');
+  const result = stmt.run(title, 0, now, now);
 
   const newTask = {
     id: Number(result.lastInsertRowid),
     title,
-    done: false
+    done: false,
+    createdAt: now,
+    updatedAt: now
   };
   res.status(201).json(newTask);
 });
@@ -108,8 +153,9 @@ app.put('/tasks/:id', (req, res) => {
 
   const newTitle = 'title' in body ? body.title.trim() : existing.title;
   const newDone = 'done' in body ? (body.done ? 1 : 0) : existing.done;
+  const now = new Date().toISOString();
 
-  db.prepare('UPDATE tasks SET title = ?, done = ? WHERE id = ?').run(newTitle, newDone, id);
+  db.prepare('UPDATE tasks SET title = ?, done = ?, updated_at = ? WHERE id = ?').run(newTitle, newDone, now, id);
   const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   res.json(formatTask(updated));
 });
@@ -120,7 +166,8 @@ app.patch('/tasks/:id/done', (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Task not found' });
 
   const newDone = existing.done === 1 ? 0 : 1;
-  db.prepare('UPDATE tasks SET done = ? WHERE id = ?').run(newDone, id);
+  const now = new Date().toISOString();
+  db.prepare('UPDATE tasks SET done = ?, updated_at = ? WHERE id = ?').run(newDone, now, id);
   const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   res.json(formatTask(updated));
 });
