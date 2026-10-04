@@ -86,10 +86,16 @@ app.get('/tasks/:id', (req, res) => {
 app.post('/tasks', (req, res) => {
   const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
   if (!title) return res.status(400).json({ error: 'title is required and cannot be empty' });
-  const nextId = tasks.length ? Math.max(...tasks.map((item) => item.id)) + 1 : 1;
-  const task = { id: nextId, title, done: false, createdAt: new Date().toISOString() };
-  tasks.push(task);
-  res.status(201).json(task);
+
+  const stmt = db.prepare('INSERT INTO tasks (title, done) VALUES (?, ?)');
+  const result = stmt.run(title, 0);
+
+  const newTask = {
+    id: Number(result.lastInsertRowid),
+    title,
+    done: false
+  };
+  res.status(201).json(newTask);
 });
 
 app.put('/tasks/:id', (req, res) => {
