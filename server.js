@@ -43,28 +43,45 @@ if (rowCount === 0) {
   console.log('Database initialized: seeded 3 initial tasks into tasks.db');
 }
 
+// Helper to ensure boolean done is returned to clients
+function formatTask(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    done: Boolean(row.done)
+  };
+}
+
 let tasks = [
   { id: 1, title: 'Finish Week 2 API', done: false, createdAt: new Date('2026-09-27T10:00:00Z').toISOString() },
   { id: 2, title: 'Test CRUD endpoints', done: false, createdAt: new Date('2026-09-27T10:05:00Z').toISOString() },
   { id: 3, title: 'Publish project to GitHub', done: false, createdAt: new Date('2026-09-27T10:10:00Z').toISOString() }
 ];
 
-
 app.get('/', (req, res) => res.json({ name: 'Task API', version: '1.0', endpoints: ['/tasks'] }));
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 app.get('/tasks', (req, res) => {
   const { done } = req.query;
-  if (done === 'true') return res.json(tasks.filter((t) => t.done === true));
-  if (done === 'false') return res.json(tasks.filter((t) => t.done === false));
-  res.json(tasks);
+  let rows;
+  if (done === 'true') {
+    rows = db.prepare('SELECT * FROM tasks WHERE done = ?').all(1);
+  } else if (done === 'false') {
+    rows = db.prepare('SELECT * FROM tasks WHERE done = ?').all(0);
+  } else {
+    rows = db.prepare('SELECT * FROM tasks').all();
+  }
+  res.json(rows.map(formatTask));
 });
 
 app.get('/tasks/:id', (req, res) => {
   const id = Number(req.params.id);
-  const task = tasks.find((item) => item.id === id);
-  if (!task) return res.status(404).json({ error: `Task ${id} not found` });
-  res.json(task);
+  const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ error: 'Task not found' });
+  res.json(formatTask(row));
 });
+
 
 app.post('/tasks', (req, res) => {
   const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
